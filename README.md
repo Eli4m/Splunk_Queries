@@ -371,9 +371,54 @@ index="zerologon" endpoint="netlogon" sourcetype="bro:dce_rpc:json"
 | where unique_operations >= 2 AND count > 100
 ```
 
-Detect Data Exfiltration
+Detect Data Exfiltration HTTP
 ```
 index="cobaltstrike_exfiltration_http" sourcetype="bro:http:json" method=POST
 | stats sum(request_body_len) as TotalBytes by src, dest, dest_port
 | eval TotalBytes = TotalBytes/1024/1024
+```
+
+Detect Data Exfiltration DNS
+```
+index=dns_exf sourcetype="bro:dns:json"
+| eval len_query=len(query)
+| search len_query>=40 AND query!="*.ip6.arpa*" AND query!="*amazonaws.com*" AND query!="*._googlecast.*" AND query!="_ldap.*"
+| bin _time span=24h
+| stats count(query) as req_by_day by _time, id.orig_h, id.resp_h
+| where req_by_day>60
+| table _time, id.orig_h, id.resp_h, req_by_day
+```
+```
+index=dns_exf sourcetype="bro:dns:json"
+| eval len_query=len(query)
+| search len_query>=40 AND query!="*.ip6.arpa*" AND query!="*amazonaws.com*" AND query!="*._googlecast.*" AND query!="_ldap.*"
+| bin _time span=24h
+| stats count(query) as req_by_day values(query) as query by _time, id.orig_h, id.resp_h
+| where req_by_day>60
+| table _time, id.orig_h, id.resp_h, req_by_day, query
+| fields *
+```
+
+Detecting Ransomware (Large File Overwrite actions/Large File Renaming Actions)
+Excessive overwrite
+```
+index="ransomware_open_rename_sodinokibi" sourcetype="bro:smb_files:json" 
+| where action IN ("SMB::FILE_OPEN", "SMB::FILE_RENAME")
+| bin _time span=5m
+| stats count by _time, source, action
+| where count>30 
+| stats sum(count) as count values(action) dc(action) as uniq_actions by _time, source
+| where uniq_actions==2 AND count>100
+```
+[Zeek] Excessive renaming with same extension
+```
+index="ransomware_new_file_extension_ctbl_ocker" sourcetype="bro:smb_files:json" action="SMB::FILE_RENAME" 
+| bin _time span=5m
+| rex field="name" "\.(?<new_file_name_extension>[^\.]*$)"
+| rex field="prev_name" "\.(?<old_file_name_extension>[^\.]*$)"
+| stats count by _time, id.orig_h, id.resp_p, name, source, old_file_name_extension, new_file_name_extension,
+| where new_file_name_extension!=old_file_name_extension
+| stats count by _time, id.orig_h, id.resp_p, source, new_file_name_extension
+| where count>20
+| sort -count
 ```

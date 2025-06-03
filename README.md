@@ -194,6 +194,7 @@ index=main earliest=1690443407 latest=1690443544 source="XmlWinEventLog:Microsof
 
 Pass The Tickets
 Detecting Golden Tickets With Splunk (Yet Another Ticket To Be Passed Approach)
+```
 index=main earliest=1690451977 latest=1690452262 source="WinEventLog:Security" user!=*$ EventCode IN (4768,4769,4770) 
 | rex field=user "(?<username>[^@]+)"
 | rex field=src_ip "(\:\:ffff\:)?(?<src_ip_4>[0-9\.]+)"
@@ -201,6 +202,7 @@ index=main earliest=1690451977 latest=1690452262 source="WinEventLog:Security" u
 | where closed_txn=0
 | search NOT user="*$@*"
 | table _time, ComputerName, username, src_ip_4, service_name, category
+```
 
 Detecting Silver Tickets With Splunk
 Detecting Silver Tickets With Splunk Through User Correlation
